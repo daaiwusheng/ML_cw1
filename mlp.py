@@ -77,20 +77,20 @@ class MLP:
             # backward phase
             # Compute the derivative of the output layer. NOTE: you will need to compute the derivative of
             # the softmax function. Hints: equation 4.55 in the book.
-            deltao = None
+            deltao = np.dot((self.outputs - targets), (np.diag(self.outputs) - np.outer(self.outputs, self.outputs)))
 
             # compute the derivative of the second hidden layer
-            deltah2 = None
+            deltah2 = self.hidden2 * self.beta * (1.0 - self.hidden2) * (np.dot(deltao, np.transpose(self.weights3)))
 
             # compute the derivative of the first hidden layer
-            deltah1 = None
+            deltah1 = self.hidden1 * self.beta * (1.0 - self.hidden1) * (np.dot(deltah2, np.transpose(self.weights2)))
 
             # update the weights of the three layers: self.weights1, self.weights2 and self.weights3
             # here you can update the weights as we did in the week 4 lab (using gradient descent)
             # but you can also add the momentum
-            updatew1 = None
-            updatew2 = None
-            updatew3 = None
+            updatew1 = eta * (np.dot(np.transpose(inputs), deltah1[:, :-1])) + self.momentum * updatew1
+            updatew2 = eta * (np.dot(self.hidden1, deltah2)) + self.momentum * updatew2
+            updatew3 = eta * (np.dot(np.transpose(self.hidden2), deltao)) + self.momentum * updatew3
 
             self.weights1 -= updatew1
             self.weights2 -= updatew2
@@ -113,16 +113,22 @@ class MLP:
 
         # layer 1
         # compute the forward pass on the first hidden layer with the sigmoid function
-        self.hidden1 = None
-
+        self.hidden1 = np.dot(inputs, self.weights1)
+        self.hidden1 = 1.0 / (1.0 + np.exp(-self.beta * self.hidden1))
+        self.hidden1 = np.concatenate((self.hidden1, -np.ones((np.shape(inputs)[0], 1))), axis=1)
         # layer 2
         # compute the forward pass on the second hidden layer with the sigmoid function
-        self.hidden2 = None
-
+        self.hidden2 = np.dot(self.hidden1, self.weights2)
+        self.hidden2 = 1.0 / (1.0 + np.exp(-self.beta * self.hidden2))
+        self.hidden2 = np.concatenate((self.hidden2, -np.ones((np.shape(self.hidden1)[0], 1))), axis=1)
         # output layer
         # compute the forward pass on the output layer with softmax function
-        outputs = None
-
+        outputs = np.dot(self.hidden2, self.weights3)
+        outputs = np.copy(outputs)
+        outputs -= np.max(outputs)
+        outputs = np.exp(outputs)
+        s_out = np.sum(outputs)
+        outputs = outputs / s_out
         #############################################################################
         # END of YOUR CODE
         #############################################################################
@@ -157,4 +163,3 @@ class MLP:
         print("The accuracy is ", np.trace(cm) / np.sum(cm) * 100)
 
         return cm
-
