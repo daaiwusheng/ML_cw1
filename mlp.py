@@ -1,6 +1,5 @@
 import numpy as np
 
-
 class MLP:
     " Multi-layer perceptron "
 
@@ -53,7 +52,7 @@ class MLP:
         updatew1 = np.zeros((np.shape(self.weights1)))
         updatew2 = np.zeros((np.shape(self.weights2)))
         updatew3 = np.zeros((np.shape(self.weights3)))
-
+        deltao = np.zeros((ndata, 10)) 
         for n in range(niterations):
 
             #############################################################################
@@ -67,29 +66,38 @@ class MLP:
 
             # forward phase
             self.outputs = self.forwardPass(inputs)
-
+            # print(np.sum(self.outputs[0]))
             # Error using the sum-of-squares error function
             error = 0.5 * np.sum((self.outputs - targets) ** 2)
 
-            if (np.mod(n, 100) == 0):
+            if np.mod(n, 100) == 0:
                 print("Iteration: ", n, " Error: ", error)
 
             # backward phase
             # Compute the derivative of the output layer. NOTE: you will need to compute the derivative of
             # the softmax function. Hints: equation 4.55 in the book.
-            deltao = np.dot((self.outputs - targets), (np.diag(self.outputs) - np.outer(self.outputs, self.outputs)))
 
+            for i in range(ndata):
+                y_current = self.outputs[i]
+                delta_current = np.dot((y_current - targets[i]), np.diag(y_current) - np.outer(y_current, y_current))
+                deltao[i] = delta_current
+
+            deltao /= ndata
             # compute the derivative of the second hidden layer
+            test_00 = np.dot(deltao, np.transpose(self.weights3))
             deltah2 = self.hidden2 * self.beta * (1.0 - self.hidden2) * (np.dot(deltao, np.transpose(self.weights3)))
 
             # compute the derivative of the first hidden layer
-            deltah1 = self.hidden1 * self.beta * (1.0 - self.hidden1) * (np.dot(deltah2, np.transpose(self.weights2)))
+            hidden_1_tmp = self.hidden1[:, :-1]
+            deltah1 = hidden_1_tmp * self.beta * (1.0 - hidden_1_tmp) * np.dot(deltah2, self.weights2)
 
             # update the weights of the three layers: self.weights1, self.weights2 and self.weights3
             # here you can update the weights as we did in the week 4 lab (using gradient descent)
             # but you can also add the momentum
-            updatew1 = eta * (np.dot(np.transpose(inputs), deltah1[:, :-1])) + self.momentum * updatew1
-            updatew2 = eta * (np.dot(self.hidden1, deltah2)) + self.momentum * updatew2
+            updatew1 = eta * (np.dot(np.transpose(inputs), deltah1)) + self.momentum * updatew1
+
+            updatew2 = eta * (np.dot(np.transpose(self.hidden1), deltah2[:, :-1])) + self.momentum * updatew2
+
             updatew3 = eta * (np.dot(np.transpose(self.hidden2), deltao)) + self.momentum * updatew3
 
             self.weights1 -= updatew1
@@ -124,11 +132,10 @@ class MLP:
         # output layer
         # compute the forward pass on the output layer with softmax function
         outputs = np.dot(self.hidden2, self.weights3)
-        outputs = np.copy(outputs)
-        outputs -= np.max(outputs)
-        outputs = np.exp(outputs)
-        s_out = np.sum(outputs)
-        outputs = outputs / s_out
+        max_outputs = np.max(outputs, axis=1, keepdims=True)  # returns max of each row and keeps same dims
+        outputs = np.exp(outputs - max_outputs)  # subtracts each row with its max value
+        sum_outputs = np.sum(outputs, axis=1, keepdims=True)  # returns sum of each row and keeps same dims
+        outputs = outputs / sum_outputs
         #############################################################################
         # END of YOUR CODE
         #############################################################################

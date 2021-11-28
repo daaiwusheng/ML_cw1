@@ -27,7 +27,6 @@ print(out)
 deta = function_soft.backward(1)
 print(deta)
 
-
-m = [1,0,0]
-n = [0,0,1]
-print(np.outer(m,n))
+m = [1, 2, 3]
+n = [0, 0, 1, 2]
+print(np.outer(m, m))
