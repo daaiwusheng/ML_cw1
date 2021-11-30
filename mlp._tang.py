@@ -27,10 +27,10 @@ class MLP:
         self.nout = sizes[3]  # number of classes / the number of neurons in the output layer
 
         # Initialise the network of two hidden layers
-        self.weights1 = (np.random.rand(self.nin + 1, self.nhidden1) - 0.5) * 2 / np.sqrt(self.nin)  # hidden layer 1
-        self.weights2 = (np.random.rand(self.nhidden1 + 1, self.nhidden2) - 0.5) * 2 / np.sqrt(
+        self.weights1 = (np.random.rand(self.nin + 1, self.nhidden1) - 0.5) * 2 / np.sqrt(self.nin)  # hidden layer 1 [in+1, h1]
+        self.weights2 = (np.random.rand(self.nhidden1 + 1, self.nhidden2) - 0.5) * 2 / np.sqrt(      # hidden 2 [h1+1, h2]
             self.nhidden1)  # hidden layer 2
-        self.weights3 = (np.random.rand(self.nhidden2 + 1, self.nout) - 0.5) * 2 / np.sqrt(
+        self.weights3 = (np.random.rand(self.nhidden2 + 1, self.nout) - 0.5) * 2 / np.sqrt(          # output layer [h2+1, out]
             self.nhidden2)  # output layer
 
     def train(self, inputs, targets, eta, niterations):
@@ -53,9 +53,7 @@ class MLP:
         updatew1 = np.zeros((np.shape(self.weights1)))
         updatew2 = np.zeros((np.shape(self.weights2)))
         updatew3 = np.zeros((np.shape(self.weights3)))
-        # here it is important, according to the equations 4.55 - 4.57  of the book, we need
-        # calculate the derivative of every output y individually. The details will be discussed below.
-        deltao = np.zeros((ndata, self.nout))
+
         for n in range(niterations):
 
             #############################################################################
@@ -69,49 +67,69 @@ class MLP:
 
             # forward phase
             self.outputs = self.forwardPass(inputs)
-            # print(np.sum(self.outputs[0]))
+
             # Error using the sum-of-squares error function
             error = 0.5 * np.sum((self.outputs - targets) ** 2)
+            # error = -np.sum( targets * np.log(self.outputs+ 1e-5) ) / ndata #题目给的是MSE，我写了CE
 
-            if np.mod(n, 100) == 0:
+            if (np.mod(n, 1) == 0):
                 print("Iteration: ", n, " Error: ", error)
 
             # backward phase
             # Compute the derivative of the output layer. NOTE: you will need to compute the derivative of
             # the softmax function. Hints: equation 4.55 in the book.
 
-            for i in range(ndata):
-                # this loop is important, accroding equation to 4.57 in the book. we need to implement yκ(δκK − yK ).
-                # Using the Kronecker delta function δij , which is 1 if i = j and 0 otherwise
-                # And the shape of it is 10*10. Because I do not know how to use numpy to calculate the equation, I use
-                # this loop to calculate every item and then combine them in deltao.
-                y_item = self.outputs[i]
-                delta_item = np.dot((y_item - targets[i]), np.diag(y_item) - np.outer(y_item, y_item))
-                deltao[i] = delta_item
+            # deltao_a = self.outputs-targets  # [9000,10]  # CE+softmax
 
-            deltao /= ndata  # get the average gradient
-            # compute the derivative of the second hidden layer
-            deltah2 = self.hidden2 * self.beta * (1.0 - self.hidden2) * (np.dot(deltao, np.transpose(self.weights3)))
+            deltao_a = np.zeros((ndata,10)) # initial to be (9000,10)
+
+            v_w1 = 0
+            v_w2 = 0
+            v_w3 = 0
+
+            for i in range(ndata):
+                each_output = self.outputs[i] #shape (10)
+                each_Kronecker = np.diag(each_output) # Kronecker delta function δij * y
+                each_output_dim = np.expand_dims(each_output,axis=0) #shape (1,10)
+                each_jacobian = each_output_dim.T * each_output_dim # jacobian matrix for yi*yj
+                part_1 = each_output - targets[i] # shape (10)
+                part_2 = each_Kronecker - each_jacobian # shape (10,10)
+                each_deltaho_a = np.dot(part_1 ,part_2) # (10) dot (10,10) -> (10)
+                deltao_a[i] = each_deltaho_a
+            deltao_a /= ndata
+
+            # deltao_a = (self.outputs - targets) * self.outputs * ( targets-xx)
+            deltaho = np.dot(self.hidden2_addbias.T, deltao_a)  # (h2+1, batch) dot (batch , out) -> (h2+1, out)
+            # deltaho =  (self.outputs - targets)
+
+            # ( (batch, out) dot (out,h2+1) ) * (batch,h2+1) * (batch,h2+1) -> (batch, h2+1)
+            deltah2_a = np.dot(deltao_a, self.weights3.T) * self.beta * self.hidden2_addbias * (1 - self.hidden2_addbias)
+            deltah2 = np.dot(self.hidden1_addbias.T, deltah2_a[:,:-1]) # ( h1+1,batch) dot ( batch, h2) -> (h1+1,h2)
 
             # compute the derivative of the first hidden layer
-<<<<<<< HEAD
-            hidden_1_reduce_dimension = self.hidden1[:, :-1]
-            deltah1 = hidden_1_reduce_dimension * self.beta * (1.0 - hidden_1_reduce_dimension) * np.dot(deltah2, self.weights2)
-=======
-            deltah1 = self.hidden1 * self.beta * (1.0 - self.hidden1) * np.dot(deltah2[:, :-1], np.transpose(self.weights2))
->>>>>>> 之前的写的不对,对什么时候减掉维度理解的不对,修正了
+            # ( (batch, h2) dot (h2, h1+1) ) * ( batch, h1+1) * ( batch, h1+1) -> (batch,h1+1)
+            deltah1_a = np.dot(deltah2_a[:,:-1], self.weights2.T ) * self.beta * self.hidden1_addbias * (1 - self.hidden1_addbias)
+            deltah1 =  np.dot(inputs.T,deltah1_a[:,:-1])  # (in+1, batch) dot (batch, h1) -> (in+1, h1)
 
             # update the weights of the three layers: self.weights1, self.weights2 and self.weights3
             # here you can update the weights as we did in the week 4 lab (using gradient descent)
             # but you can also add the momentum
-<<<<<<< HEAD
-            updatew1 = eta * (np.dot(np.transpose(inputs), deltah1)) + self.momentum * updatew1
-=======
-            updatew1 = eta * (np.dot(np.transpose(inputs), deltah1[:, :-1])) + self.momentum * updatew1
 
->>>>>>> 之前的写的不对,对什么时候减掉维度理解的不对,修正了
-            updatew2 = eta * (np.dot(np.transpose(self.hidden1), deltah2[:, :-1])) + self.momentum * updatew2
-            updatew3 = eta * (np.dot(np.transpose(self.hidden2), deltao)) + self.momentum * updatew3
+            # if v_w1 == 0:
+            #     v_w1 = deltah1
+            #     v_w2 = deltah2
+            #     v_w3 = deltaho
+
+            # v_w1 = self.momentum * v_w1 + (1-self.momentum) * deltah1
+            # v_w2 = self.momentum * v_w2 + (1 - self.momentum) * deltah2
+            # v_w3 = self.momentum * v_w3 + (1 - self.momentum) * deltaho
+
+            updatew1 = eta*deltah1 + self.momentum * updatew1
+            updatew2 = eta*deltah2 + self.momentum * updatew2
+            updatew3 = eta*deltaho + self.momentum * updatew3
+            # updatew1 = eta*v_w1
+            # updatew2 = eta*v_w2
+            # updatew3 = eta*v_w3
 
             self.weights1 -= updatew1
             self.weights2 -= updatew2
@@ -132,23 +150,33 @@ class MLP:
         # because we are working with multi-class classification.
         #############################################################################
 
+        def Softmax(y):
+            y = y - np.max(y, axis=1, keepdims=True)
+            y_exp = np.exp(y)
+            y_sum = np.sum(y_exp, axis=1, keepdims=True)
+            return y_exp / y_sum
+
+        # def Sigmoid(x,b = self.beta):
+        #     return 1.0 / (1.0 + np.exp(-self.beta * x))
+
         # layer 1
         # compute the forward pass on the first hidden layer with the sigmoid function
-        self.hidden1 = np.dot(inputs, self.weights1)
-        self.hidden1 = 1.0 / (1.0 + np.exp(-self.beta * self.hidden1))
-        self.hidden1 = np.concatenate((self.hidden1, -np.ones((np.shape(inputs)[0], 1))), axis=1)
+        ndata = np.shape(inputs)[0]
+        self.hidden1 = np.dot(inputs,self.weights1)  # (batch, in+1) dot (in+1 , h1) -> (batch,h1)
+        self.hidden1_sig = 1.0 / (1.0 + np.exp(-self.beta * self.hidden1))
+        self.hidden1_addbias = np.concatenate((self.hidden1_sig, -np.ones((ndata, 1))), axis=-1)  # add bias  (batch, h1+1)
+
         # layer 2
         # compute the forward pass on the second hidden layer with the sigmoid function
-        self.hidden2 = np.dot(self.hidden1, self.weights2)
-        self.hidden2 = 1.0 / (1.0 + np.exp(-self.beta * self.hidden2))
-        self.hidden2 = np.concatenate((self.hidden2, -np.ones((np.shape(self.hidden1)[0], 1))), axis=1)
+        self.hidden2 = np.dot(self.hidden1_addbias,self.weights2) # (batch, h1+1) dot (h1+1, h2) -> (batch, h2)
+        self.hidden2_sig = 1.0 / (1.0 + np.exp(-self.beta * self.hidden2))
+        self.hidden2_addbias = np.concatenate((self.hidden2_sig, -np.ones((ndata, 1))), axis=-1)  # add bias (batch, h2+1)
+
         # output layer
         # compute the forward pass on the output layer with softmax function
-        outputs = np.dot(self.hidden2, self.weights3)
-        max_outputs = np.max(outputs, axis=1, keepdims=True)
-        outputs = np.exp(outputs - max_outputs)
-        sum_outputs = np.sum(outputs, axis=1, keepdims=True)
-        outputs = outputs / sum_outputs
+        outputs = np.dot(self.hidden2_addbias, self.weights3) # (batch, h2+1) dot (h2+1 ,out) -> (batch, out)
+        outputs = Softmax(outputs)
+
         #############################################################################
         # END of YOUR CODE
         #############################################################################
@@ -178,8 +206,9 @@ class MLP:
             for j in range(nclasses):
                 cm[i, j] = np.sum(np.where(outputs == i, 1, 0) * np.where(targets == j, 1, 0))
 
-        print("The confusion matrix is:")
-        print(cm)
+        # print("The confusion matrix is:")
+        # print(cm)
         print("The accuracy is ", np.trace(cm) / np.sum(cm) * 100)
 
         return cm
+
