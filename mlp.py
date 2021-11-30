@@ -94,22 +94,13 @@ class MLP:
             deltah2 = self.hidden2 * self.beta * (1.0 - self.hidden2) * (np.dot(deltao, np.transpose(self.weights3)))
 
             # compute the derivative of the first hidden layer
-<<<<<<< HEAD
-            hidden_1_reduce_dimension = self.hidden1[:, :-1]
-            deltah1 = hidden_1_reduce_dimension * self.beta * (1.0 - hidden_1_reduce_dimension) * np.dot(deltah2, self.weights2)
-=======
             deltah1 = self.hidden1 * self.beta * (1.0 - self.hidden1) * np.dot(deltah2[:, :-1], np.transpose(self.weights2))
->>>>>>> 之前的写的不对,对什么时候减掉维度理解的不对,修正了
 
             # update the weights of the three layers: self.weights1, self.weights2 and self.weights3
             # here you can update the weights as we did in the week 4 lab (using gradient descent)
             # but you can also add the momentum
-<<<<<<< HEAD
-            updatew1 = eta * (np.dot(np.transpose(inputs), deltah1)) + self.momentum * updatew1
-=======
-            updatew1 = eta * (np.dot(np.transpose(inputs), deltah1[:, :-1])) + self.momentum * updatew1
 
->>>>>>> 之前的写的不对,对什么时候减掉维度理解的不对,修正了
+            updatew1 = eta * (np.dot(np.transpose(inputs), deltah1[:, :-1])) + self.momentum * updatew1
             updatew2 = eta * (np.dot(np.transpose(self.hidden1), deltah2[:, :-1])) + self.momentum * updatew2
             updatew3 = eta * (np.dot(np.transpose(self.hidden2), deltao)) + self.momentum * updatew3
 
