@@ -56,6 +56,21 @@ class MLP:
         # here it is important, according to the equations 4.55 - 4.57  of the book, we need
         # calculate the derivative of every output y individually. The details will be discussed below.
         deltao = np.zeros((ndata, self.nout))
+
+        #  this function is an implementation of the formula yκ(δκK − yK ), which is a part of 4.57 equation
+        def get_Kronecker_delta(one_dim_array):
+            dim = one_dim_array.shape[0]
+            # we need a square matrix, every row is same vector
+            square_matrix = np.zeros((dim, dim))
+            for k in range(dim):
+                square_matrix[k] = one_dim_array
+            identity_matrix = np.identity(dim)
+            # (δκK − yK ) matrix, only the diagnal vlues is 1-yk, others are -yk
+            delta_k_K_matrix = identity_matrix - square_matrix
+            # yκ(δκK − yK ) matrix
+            result = one_dim_array.reshape(dim, 1) * delta_k_K_matrix
+            return result
+
         for n in range(niterations):
 
             #############################################################################
@@ -86,7 +101,7 @@ class MLP:
                 # And the shape of it is 10*10. Because I do not know how to use numpy to calculate the equation, I use
                 # this loop to calculate every item and then combine them in deltao.
                 y_item = self.outputs[i]
-                delta_item = np.dot((y_item - targets[i]), np.diag(y_item) - np.outer(y_item, y_item))
+                delta_item = np.dot((y_item - targets[i]), get_Kronecker_delta(y_item))
                 deltao[i] = delta_item
 
             deltao /= ndata  # get the average gradient
@@ -140,10 +155,11 @@ class MLP:
         # output layer
         # compute the forward pass on the output layer with softmax function
         outputs = np.dot(self.hidden2, self.weights3)
-        max_outputs = np.max(outputs, axis=1, keepdims=True)
-        outputs = np.exp(outputs - max_outputs)
-        sum_outputs = np.sum(outputs, axis=1, keepdims=True)
-        outputs = outputs / sum_outputs
+        # keeping the dimenstion is important, as we need to calculate very row's softmax value.
+        max_outputs_values = np.max(outputs, axis=1, keepdims=True)
+        outputs = np.exp(outputs - max_outputs_values)
+        sum_outputs_values = np.sum(outputs, axis=1, keepdims=True)  # here we need every row's sum
+        outputs = outputs / sum_outputs_values
         #############################################################################
         # END of YOUR CODE
         #############################################################################

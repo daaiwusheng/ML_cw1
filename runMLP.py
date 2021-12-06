@@ -24,6 +24,6 @@ test_tgt = np.zeros((teread, 10))
 for i in range(teread):
     test_tgt[i, teset[1][i]] = 1
 
-sizes = [784, 10, 5, 10]  # 784 is the number of pixels of the images and 10 is the number of classes
+sizes = [784, 5, 5, 10]  # 784 is the number of pixels of the images and 10 is the number of classes
 classifier = MLP(sizes, beta=5, momentum=0.9)
 classifier.train(train_in, train_tgt, 0.01, 10000)
