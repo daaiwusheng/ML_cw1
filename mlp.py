@@ -101,6 +101,11 @@ class MLP:
                 # And the shape of it is 10*10. Because I do not know how to use numpy to calculate the equation, I use
                 # this loop to calculate every item and then combine them in deltao.
                 y_item = self.outputs[i]
+                # why we use dot product below is important. As the derivative of softmax is a
+                # symmetric two-dimensional matrix, and the nature of calculating delta_item is calculating
+                # the "Variation of cumulative calculus" of every dimension of the vector y_item, then we can
+                # use dot product here, or we can do np.dot(get_Kronecker_delta(y_item), (y_item - targets[i]).T).
+                # the result will be identical.
                 delta_item = np.dot((y_item - targets[i]), get_Kronecker_delta(y_item))
                 deltao[i] = delta_item
 
